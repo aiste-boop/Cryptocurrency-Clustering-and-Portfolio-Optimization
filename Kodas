@@ -1,0 +1,22 @@
+# 1 užduotis. Kriptovaliutų istorinių duomenų gavimas
+
+
+!pip install yfinance
+import yfinance as yf
+
+# visos kripto, kuriu market cap > 1 bil (2025-12-28 duomenimis). 60 is viso
+tickers = [
+ "BTC-USD","ETH-USD","USDT-USD","XRP-USD","BNB-USD","SOL-USD","USDC-USD","TRX-USD",
+    "DOGE-USD","ADA-USD", "BCH-USD", "LINK-USD", "ZEC-USD", "HYPE32196-USD", "XMR-USD",
+    "LEO-USD", "XLM-USD", "USDE29470-USD", "LTC-USD", "AVAX-USD", "SUI20947-USD", 
+    "DAI-USD", "CC37263-USD", "HBAR-USD", "UNI7083-USD", "SHIB-USD", "TON11419-USD", 
+    "WLFI33251-USD", "PYUSD-USD", "CRO-USD", "MNT27075-USD", "USD136148-USD", "DOT-USD", 
+    "BGB-USD", "TAO22974-USD", "AAVE-USD", "OKB-USD", "NEAR-USD", "M35491-USD", "ETC-USD",
+    "ASTER36341-USD", "PEPE24478-USD", "XAUT-USD", "PI35697-USD", "ICP-USD", "PAXG-USD", 
+    "ENA-USD", "USDG33793-USD", "NIGHT39064-USD", "SKY33038-USD", "KCS-USD", "WLD-USD",
+    "RLUSD-USD", "APT21794-USD", "ONDO-USD", "KAS-USD", "POL28321-USD", "ARB11841-USD", 
+    "ALGO-USD", "ATOM-USD"
+]
+# parsisiunciame duomenis
+data = yf.download(tickers, start="2021-01-01", end="2026-01-01")
+print(data.head())
