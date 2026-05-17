@@ -2,10 +2,12 @@
 
 
 !pip install yfinance
+
 import yfinance as yf
+import numpy as np
 
 # visos kripto, kuriu market cap > 1 bil (2025-12-28 duomenimis). 60 is viso
-tickers = [
+tickers=[
  "BTC-USD","ETH-USD","USDT-USD","XRP-USD","BNB-USD","SOL-USD","USDC-USD","TRX-USD",
     "DOGE-USD","ADA-USD", "BCH-USD", "LINK-USD", "ZEC-USD", "HYPE32196-USD", "XMR-USD",
     "LEO-USD", "XLM-USD", "USDE29470-USD", "LTC-USD", "AVAX-USD", "SUI20947-USD", 
@@ -18,5 +20,35 @@ tickers = [
     "ALGO-USD", "ATOM-USD"
 ]
 # parsisiunciame duomenis
-data = yf.download(tickers, start="2021-01-01", end="2026-01-01")
+data=yf.download(tickers, start="2021-01-01", end="2026-01-01")
 print(data.head())
+
+# duomenu pilnumo patikrinimas
+close=data["Close"]
+
+# kripto dar neegzistavo arba nebuvo listinta Yahoo Finance
+coins_with_any_nan=close.columns[close.isna().any()].tolist()
+
+# kripto, kurios turi info visomis dienomis
+coins_no_nan=close.columns[~close.isna().any()].tolist()
+print(coins_no_nan)
+
+# atrinktos kripto su pilnais duomenimis (32)
+tickers=[
+    'AAVE-USD', 'ADA-USD', 'ALGO-USD', 'ATOM-USD', 'AVAX-USD', 'BCH-USD', 'BNB-USD', 
+    'BTC-USD', 'CRO-USD', 'DAI-USD', 'DOGE-USD', 'DOT-USD', 'ETC-USD', 'ETH-USD', 
+    'HBAR-USD', 'KCS-USD', 'LEO-USD', 'LINK-USD', 'LTC-USD', 'NEAR-USD', 'OKB-USD', 
+    'PAXG-USD', 'SOL-USD', 'TRX-USD', 'UNI7083-USD', 'USDC-USD', 'USDT-USD', 
+    'XAUT-USD', 'XLM-USD', 'XMR-USD', 'XRP-USD', 'ZEC-USD'
+]
+# jau galutines kripto parsisiunciam
+data=yf.download(tickers, start="2021-01-01", end="2026-01-01")
+close=data["Close"]
+
+# apskaiciuojamos logaritmines grazos
+log_returns = np.log(close / close.shift(1)) # ln ( P(t) / P(t-1) ) == ln(P(t)) - ln(P(t-1)) 
+log_returns = log_returns.dropna() # pasalinama pirma diena, kadangi ji tapo null
+print(log_returns)
+
+# transaformuojam duomenis i patogesni formata
+X=log_returns.T
