@@ -1,6 +1,6 @@
 # 1 užduotis. Kriptovaliutų istorinių duomenų gavimas
 
-
+ 
 !pip install yfinance
 
 import yfinance as yf
