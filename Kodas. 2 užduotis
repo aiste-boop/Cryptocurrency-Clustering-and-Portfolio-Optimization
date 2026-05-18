@@ -1,0 +1,413 @@
+# 2 užduotis. Atlikti kriptovaliutų grąžų klasterizavimą skirtingais metodais
+
+!pip install scikit-learn-extra 
+!pip install "numpy<2"
+!pip install minisom
+
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans, KMedoids
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+from minisom import MiniSom
+from matplotlib.patches import Patch
+import torch
+import torch.nn as nn
+
+# 1 klasterizavimo metodas. k-vidurkiu metodas
+
+# duomenu standartizavimas
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
+
+# isbandome 2-9 klasterius, ivertiname naudojant indeksus
+results=[]
+inertia_values=[]
+K_range=range(2, 10)
+for k in K_range:
+    kmeans=KMeans(n_clusters=k, random_state=42)
+    labels=kmeans.fit_predict(X_scaled)
+    inertia_values.append(kmeans.inertia_)
+    sil=silhouette_score(X_scaled, labels)
+    db=davies_bouldin_score(X_scaled, labels)
+    ch=calinski_harabasz_score(X_scaled, labels)
+    results.append({
+        "k": k,
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "calinski_harabasz": ch
+    })
+df_results=pd.DataFrame(results)
+print(df_results)
+
+# alkunes grafikas
+plt.plot(K_range, inertia_values, marker='o')
+plt.grid(True)
+plt.xlabel("Klasterių skaičius")
+plt.ylabel("Vidinė klasterių kvadratų suma (WCSS)")
+plt.title("K-vidurkių metodo alkūnės kreivė")
+plt.show()
+
+# isrenkamas geriausias klasteriu skaicius
+kmeans=KMeans(n_clusters=2, random_state=42)
+labels=kmeans.fit_predict(X_scaled)
+
+# braizome PCA grafikus
+# pca 2d
+pca_2d=PCA(n_components=2)
+X_2d=pca_2d.fit_transform(X_scaled)
+# pca 3d
+pca_3d=PCA(n_components=3)
+X_3d=pca_3d.fit_transform(X_scaled)
+fig=plt.figure(figsize=(14,6))
+# pca 2d
+ax1=fig.add_subplot(1, 2, 1)
+scatter1=ax1.scatter(X_2d[:,0], X_2d[:,1], c=labels)
+ax1.set_xlabel("PC1")
+ax1.set_ylabel("PC2")
+ax1.grid(True)
+ax1.legend(*scatter1.legend_elements(), title="Klasteriai")
+# pca 3d
+ax2=fig.add_subplot(1, 2, 2, projection='3d')
+ax2.legend(*scatter1.legend_elements(), title="Klasteriai")
+scatter2=ax2.scatter(X_3d[:,0], X_3d[:,1], X_3d[:,2], c=labels)
+ax2.set_xlabel("PC1")
+ax2.set_ylabel("PC2")
+ax2.set_zlabel("PC3", labelpad=-5)
+plt.tight_layout()
+plt.show()
+print("pca 2d", pca_2d.explained_variance_ratio_)
+print(sum(pca_2d.explained_variance_ratio_))
+print("pca 3d",pca_3d.explained_variance_ratio_)
+print(sum(pca_3d.explained_variance_ratio_))
+
+# paziurime gautus klasterius
+clusters=pd.Series(labels, index=log_returns.columns)
+print(clusters)
+print(clusters.value_counts())
+
+
+# 2 klasterizavimo metodas. k-medoidu metodas
+
+# duomenu standartizavimas
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
+
+# isbandome 2-9 klasterius, ivertiname naudojant indeksus
+results=[]
+inertia_values=[]
+K_range=range(2, 10)
+for k in K_range:
+    kmedoids = KMedoids(n_clusters=k, metric='manhattan', init='k-medoids++', random_state=42)
+    labels=kmedoids.fit_predict(X_scaled)
+    inertia_values.append(kmedoids.inertia_)
+    sil=silhouette_score(X_scaled, labels)
+    db=davies_bouldin_score(X_scaled, labels)
+    ch=calinski_harabasz_score(X_scaled, labels)
+    results.append({
+        "k": k,
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "calinski_harabasz": ch
+    })
+df_results=pd.DataFrame(results)
+print(df_results)
+
+# alkunes grafikas
+plt.plot(K_range, inertia_values, marker='o')
+plt.grid(True)
+plt.xlabel("Klasterių skaičius")
+plt.ylabel("Vidinė klasterių kvadratų suma (WCSS)")
+plt.title("K-medoidų metodo alkūnės kreivė")
+plt.show()
+
+# parenkame geriausia klasteriu skaiciu
+kmedoids=KMedoids(n_clusters=2, random_state=42)
+labels=kmedoids.fit_predict(X_scaled)
+
+# braizome PCA grafikus
+# pca 2d
+pca_2d=PCA(n_components=2)
+X_2d=pca_2d.fit_transform(X_scaled)
+# pca 3d
+pca_3d=PCA(n_components=3)
+X_3d=pca_3d.fit_transform(X_scaled)
+fig=plt.figure(figsize=(14,6))
+# pca 2d
+ax1=fig.add_subplot(1, 2, 1)
+scatter1=ax1.scatter(X_2d[:,0], X_2d[:,1], c=labels)
+ax1.set_xlabel("PC1")
+ax1.set_ylabel("PC2")
+ax1.grid(True)
+ax1.legend(*scatter1.legend_elements(), title="Klasteriai")
+# pca 3d
+ax2=fig.add_subplot(1, 2, 2, projection='3d')
+ax2.legend(*scatter1.legend_elements(), title="Klasteriai")
+scatter2=ax2.scatter(X_3d[:,0], X_3d[:,1], X_3d[:,2], c=labels)
+ax2.set_xlabel("PC1")
+ax2.set_ylabel("PC2")
+ax2.set_zlabel("PC3", labelpad=-5)
+plt.tight_layout()
+plt.show()
+print("pca 2d", pca_2d.explained_variance_ratio_)
+print(sum(pca_2d.explained_variance_ratio_))
+print("pca 3d",pca_3d.explained_variance_ratio_)
+print(sum(pca_3d.explained_variance_ratio_))
+
+# paziurime gautus klasterius
+clusters=pd.Series(labels, index=log_returns.columns)
+print(clusters)
+print(clusters.value_counts())
+
+
+# 3 klasterizavimo metodas. saviorganizuojancio zemelapio (SOM) metodas
+
+# duomenu standartizavimas
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
+
+# taikomas SOM metodas
+X_scaled=np.array(X_scaled)
+# naudosim 5x5
+som=MiniSom(x=5, y=5, input_len=X_scaled.shape[1], sigma=1.5, learning_rate=0.5, random_seed=42)
+som.random_weights_init(X_scaled)
+som.train_random(X_scaled, 3000) # 3000 iteraciju
+
+# SOM vizualizacija
+plt.figure(figsize=(8,8))
+plt.pcolor(som.distance_map().T, cmap='viridis')
+cbar=plt.colorbar()
+cbar.set_label("Neuronų tarpusavio atstumas (U-Matrix reikšmė)")
+for i, coin in enumerate(log_returns.columns):
+    x, y=som.winner(X_scaled[i])
+    plt.text(x + 0.5, y + 0.5, coin, ha='center', va='center')
+plt.show()
+
+# gauname neuronu svorius
+weights=som.get_weights().reshape(-1, X_scaled.shape[1])
+
+# klasterizuojam svorius k-vidurkiu metodu
+results=[]
+inertia_values=[]
+K_range=range(2, 10)
+for k in K_range:
+    kmeans=KMeans(n_clusters=k, random_state=42)
+    labels=kmeans.fit_predict(weights)
+    inertia_values.append(kmeans.inertia_)
+    sil=silhouette_score(weights, labels)
+    db=davies_bouldin_score(weights, labels)
+    ch=calinski_harabasz_score(weights, labels)
+    results.append({
+        "k": k,
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "calinski_harabasz": ch
+    })
+df_results=pd.DataFrame(results)
+print(df_results)
+
+# alkunes grafikas
+plt.plot(K_range, inertia_values, marker='o')
+plt.grid(True)
+plt.xlabel("Klasterių skaičius")
+plt.ylabel("Vidinė klasterių kvadratų suma (WCSS)")
+plt.title("K-vidurkių metodo (SOM žemėlapio) alkūnės kreivė")
+plt.show()
+
+# parenkamas geriausias klasteris
+kmeans=KMeans(n_clusters=2, random_state=42)
+labels=kmeans.fit_predict(weights)
+
+# vizualizuojam suklasterizuota som zemelapi
+plt.figure(figsize=(8,8))
+kmap=labels.reshape(5, 5)
+img=plt.imshow(kmap, cmap='viridis', vmin=0, vmax=1, extent=[0,5,0,5], origin='lower')
+legend_elements=[
+    Patch(facecolor=plt.cm.viridis(0.0), label='Klasteris 0'),
+    Patch(facecolor=plt.cm.viridis(1.0), label='Klasteris 1')
+]
+plt.legend(handles=legend_elements, loc='upper right')
+plt.xticks(range(6))
+plt.yticks(range(6))
+# kriptovaliutu irasymas ant langeliu
+for i, coin in enumerate(log_returns.columns):
+    x, y=som.winner(X_scaled[i])
+    cluster=kmap[y, x]
+    text_color='white' if cluster==0 else 'black' # del geresnio matymo padarytas baltas tekstas ant tamsesnio fono
+    plt.text(x + 0.5, y + 0.5, coin, ha='center', va='center', fontsize=12, color=text_color)
+plt.show()
+
+# neuronu klasteri priskiriam toki pati ir kriptovaliutai
+coin_clusters={}
+grid_size=5  # nes 5x5
+for i, coin in enumerate(log_returns.columns):
+    # randamas bmu
+    x, y=som.winner(X_scaled[i])
+    neuron_index=x*grid_size+y
+    # paimamas klasteris
+    cluster=labels[neuron_index]
+    coin_clusters[coin]=cluster
+clusters=pd.Series(coin_clusters)
+
+# braizome PCA grafikus
+# pca 2d
+pca_2d=PCA(n_components=2)
+X_2d=pca_2d.fit_transform(X_scaled)
+# pca 3d
+pca_3d=PCA(n_components=3)
+X_3d=pca_3d.fit_transform(X_scaled)
+fig=plt.figure(figsize=(14,6))
+# pca 2d
+ax1=fig.add_subplot(1, 2, 1)
+scatter1=ax1.scatter(X_2d[:,0], X_2d[:,1], c=clusters.values)
+ax1.set_xlabel("PC1")
+ax1.set_ylabel("PC2")
+ax1.grid(True)
+ax1.legend(*scatter1.legend_elements(), title="Klasteriai")
+# pca 3d
+ax2=fig.add_subplot(1, 2, 2, projection='3d')
+ax2.legend(*scatter1.legend_elements(), title="Klasteriai")
+scatter2=ax2.scatter(X_3d[:,0], X_3d[:,1], X_3d[:,2], c=clusters.values)
+ax2.set_xlabel("PC1")
+ax2.set_ylabel("PC2")
+ax2.set_zlabel("PC3", labelpad=-5)
+plt.tight_layout()
+plt.show()
+print("pca 2d", pca_2d.explained_variance_ratio_)
+print(sum(pca_2d.explained_variance_ratio_))
+print("pca 3d",pca_3d.explained_variance_ratio_)
+print(sum(pca_3d.explained_variance_ratio_))
+
+# paziurimi klasterizavimo rezultatai
+clusters=pd.Series(coin_clusters)
+print(clusters)
+print(clusters.value_counts())
+
+
+# 4 klasterizavimo metodas. giliojo iterptinio klasterizavimo (DEC) metodas
+
+# duomenu standartizavimas
+scaler=StandardScaler()
+X_scaled=scaler.fit_transform(X)
+X_tensor=torch.tensor(X_scaled, dtype=torch.float32)
+
+# autoenkoderis
+class AutoEncoder(nn.Module):
+    def __init__(self, input_dim=1825, latent_dim=10):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Linear(128, latent_dim)
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 512),
+            nn.ReLU(),
+            nn.Linear(512, input_dim)
+        )
+    def forward(self, x):
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat, z
+
+# apmokomas neuroninis tinklas
+model=AutoEncoder(input_dim=1825, latent_dim=10)
+optimizer=torch.optim.Adam(model.parameters(), lr=0.001)
+loss_fn=nn.MSELoss()
+for epoch in range(200): # 200 iteraciju
+    optimizer.zero_grad()
+    x_hat, z=model(X_tensor)
+    loss=loss_fn(x_hat, X_tensor)
+    loss.backward()
+    optimizer.step()
+    print(epoch, loss.item())
+
+# gaunami latentiniai duomenys
+with torch.no_grad():
+    _, Z=model(X_tensor)
+Z = Z.numpy()
+
+# klasterizuojame gautus latentinius duomenis naudojant k-vidurkiu metoda
+results=[]
+inertia_values=[]
+K_range=range(2, 10)
+for k in K_range:
+    kmeans=KMeans(n_clusters=k, random_state=42)
+    labels=kmeans.fit_predict(Z)
+    inertia_values.append(kmeans.inertia_)
+    sil=silhouette_score(Z, labels)
+    db=davies_bouldin_score(Z, labels)
+    ch=calinski_harabasz_score(Z, labels)
+    results.append({
+        "k": k,
+        "silhouette": sil,
+        "davies_bouldin": db,
+        "calinski_harabasz": ch
+    })
+df_results=pd.DataFrame(results)
+print(df_results)
+
+# alkunes grafikas
+plt.plot(K_range, inertia_values, marker='o')
+plt.grid(True)
+plt.xlabel("Klasterių skaičius")
+plt.ylabel("Vidinė klasterių kvadratų suma (WCSS)")
+plt.title("K-vidurkių metodo (DEC) alkūnės kreivė")
+plt.show()
+
+# isrenkamas geriausias klasteriu skaicius
+kmeans=KMeans(n_clusters=2, random_state=42)
+labels=kmeans.fit_predict(Z)
+centers=kmeans.cluster_centers_
+
+# klasteriu priskyrimas kriptovaliutoms
+def soft_assign(z, centers):
+    dist=np.sum((z[:, None]-centers[None, :])**2, axis=2)
+    q=1.0/(1.0+dist)
+    q=q/q.sum(axis=1, keepdims=True)
+    return q
+Q=soft_assign(Z, centers)
+final_labels=np.argmax(Q, axis=1)
+coin_clusters=dict(zip(log_returns.columns, final_labels))
+clusters=pd.Series(coin_clusters)
+
+# braizome PCA grafikus
+# pca 2d
+pca_2d=PCA(n_components=2)
+X_2d=pca_2d.fit_transform(Z)
+# pca 3d
+pca_3d=PCA(n_components=3)
+X_3d=pca_3d.fit_transform(Z)
+fig=plt.figure(figsize=(14,6))
+# pca 2d
+ax1=fig.add_subplot(1, 2, 1)
+scatter1=ax1.scatter(X_2d[:,0], X_2d[:,1], c=clusters.values)
+ax1.set_xlabel("PC1")
+ax1.set_ylabel("PC2")
+ax1.grid(True)
+ax1.legend(*scatter1.legend_elements(), title="Klasteriai")
+# pca 3d
+ax2=fig.add_subplot(1, 2, 2, projection='3d')
+ax2.legend(*scatter1.legend_elements(), title="Klasteriai")
+scatter2=ax2.scatter(X_3d[:,0], X_3d[:,1], X_3d[:,2], c=clusters.values)
+ax2.set_xlabel("PC1")
+ax2.set_ylabel("PC2")
+ax2.set_zlabel("PC3", labelpad=-5)
+plt.tight_layout()
+plt.show()
+print("pca 2d", pca_2d.explained_variance_ratio_)
+print(sum(pca_2d.explained_variance_ratio_))
+print("pca 3d",pca_3d.explained_variance_ratio_)
+print(sum(pca_3d.explained_variance_ratio_))
+
+# klasterizavimo rezultatai
+clusters=pd.Series(coin_clusters)
+print(clusters)
+print(clusters.value_counts())
