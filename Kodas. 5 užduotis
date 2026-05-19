@@ -1,0 +1,130 @@
+# 5 užduotis. Palyginti gautus portfelius pagal efektyvumą pelno-rizikos prasme
+
+
+!pip install scikit-posthocs
+
+from scipy.stats import kruskal
+import pandas as pd
+import scikit_posthocs as sp
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# portfeliu grazos
+ret_ivp_series=returns @ weights_ivp # IVP
+ret_sharpe_series=returns @ weights_sharpe # MSRP
+ret_gmv_series=returns @ weights_min_risk # GMVP
+ret_eq_series=returns @ weights_equal # EWP
+ret_cvar_series=returns @ weights_cvar # CVAR
+
+# kruskal-wallis testas
+stat, p=kruskal(
+    ret_ivp_series,
+    ret_sharpe_series,
+    ret_gmv_series,
+    ret_eq_series, 
+    ret_cvar_series
+)
+print("H:", stat)
+print("p:", p)
+
+# dunn testas
+df=pd.DataFrame({
+    "IVP": ret_ivp_series,
+    "Sharpe": ret_sharpe_series,
+    "GMV": ret_gmv_series,
+    "Equal": ret_eq_series,
+    "CVaR": ret_cvar_series
+})
+df_long=df.melt(var_name="portfolio", value_name="returns")
+result=sp.posthoc_dunn(df_long, val_col="returns", group_col="portfolio")
+print(result)
+
+# portfelio histogramos
+sns.histplot(ret_ivp_series, bins=100)
+plt.title("IVP portfelio grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+sns.histplot(ret_sharpe_series, bins=100)
+plt.title("MSRP portfelio grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+sns.histplot(ret_gmv_series, bins=100)
+plt.title("GMVP portfelio grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+sns.histplot(ret_eq_series, bins=100)
+plt.title("EWP portfelio grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+sns.histplot(ret_cvar_series, bins=100)
+plt.title("CVAR portfelio grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+# portfeliu vertes kreive
+df=pd.DataFrame({
+    "IVP": ret_ivp_series,
+    "MSRP": ret_sharpe_series,
+    "GMVP": ret_gmv_series,
+    "EWP": ret_eq_series,
+    "CVAR": ret_cvar_series
+})
+df=df.dropna()
+equity=(1+df).cumprod()
+plt.figure(figsize=(12,6))
+for col in equity.columns:
+    # GMVP pastorinam
+    if col=="GMVP":
+        plt.plot(equity.index, equity[col], label=col, linewidth=3)
+    # CVAR plona juoda
+    elif col == "CVAR":
+        plt.plot(equity.index, equity[col], label=col, linewidth=1, color='black', linestyle='--')
+    # kitos
+    else:
+        plt.plot(equity.index, equity[col], label=col, linewidth=1)
+plt.ylabel("Portfelio vertė")
+plt.xlabel("Diena")
+plt.legend()
+plt.grid()
+plt.show()  
+
+# efektyvumo vertinimas
+returns=log_returns[selected]
+def portfolio_metrics(returns):
+    equity=(1+returns).cumprod()
+    metrics={}
+    # sharpe rodiklis
+    metrics["sharpe"]=returns.mean()/returns.std()
+    # max drawdown
+    peak=equity.cummax()
+    dd=equity/peak-1
+    metrics["max_drawdown"]=dd.min()
+    # calmar rodiklis
+    cagr=equity.iloc[-1]**(252/len(returns))-1
+    metrics["calmar"]=cagr/abs(metrics["max_drawdown"])
+    # omega rodiklis
+    gains=returns[returns>0].sum()
+    losses=-returns[returns<0].sum()
+    metrics["omega"]=gains/losses if losses != 0 else np.inf
+    # skew ir kurt
+    metrics["skewness"]=returns.skew()
+    metrics["kurtosis"]=returns.kurtosis()
+    return metrics
+
+results=pd.DataFrame({
+    "IVP": portfolio_metrics(ret_ivp_series),
+    "Sharpe": portfolio_metrics(ret_sharpe_series),
+    "GMV": portfolio_metrics(ret_gmv_series),
+    "Equal": portfolio_metrics(ret_eq_series),
+    "CVaR": portfolio_metrics(ret_cvar_series)
+}).T
+print(results)
