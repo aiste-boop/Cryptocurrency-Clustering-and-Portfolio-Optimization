@@ -1,0 +1,187 @@
+# 4 užduotis. Iš atrinktų kriptovaliutų suformuoti vertybinių popierių portfelį taikant skirtingas metodikas
+
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+import matplotlib.pyplot as plt
+
+# 1 metodas. vienodu svoriu (EWP) metodas
+# svoriai, graza, rizika
+selected=['LEO-USD', 'USDC-USD', 'XAUT-USD', 'SOL-USD', 'UNI7083-USD', 'ZEC-USD']
+returns=log_returns[selected]
+n=len(selected)
+weights_equal=np.ones(n)/n
+mu=returns.mean()
+cov=returns.cov()
+ret_eq=(returns @ weights_equal).mean()
+vol_eq=np.sqrt(weights_equal.T @ cov @ weights_equal)
+print("graza:", ret_eq)
+print("kintamumas:", vol_eq)
+weights_df=pd.DataFrame({
+    "asset": selected,
+    "weight": weights_equal
+})
+print(weights_df)
+
+# 2 metodas. atvirkstinio kintamumo (IVP) metodas
+
+returns=log_returns[selected]
+vols=returns.std()
+# inverse volatility
+inv_vol=1/vols
+weights_ivp=inv_vol/inv_vol.sum()
+ret_ivp=(returns @ weights_ivp).mean()
+cov=returns.cov()
+vol_ivp=np.sqrt(weights_ivp.T @ cov @ weights_ivp)
+print("graza:", ret_ivp)
+print("kintamumas:", vol_ivp)
+ivp_df=pd.DataFrame({
+    "asset": selected,
+    "weight": weights_ivp
+})
+print(ivp_df)
+
+# 3 metodas. salygines rizikos minimizavimo (CVAR) metodas
+
+returns=log_returns[selected]
+returns=returns.values # numpy formatas
+n=returns.shape[1]
+T=returns.shape[0]
+def cvar_objective(x, returns, alpha=0.05):
+    w=x[:n]
+    z=x[n:]
+    port_returns=returns @ w
+    var=z[0]
+    losses=-port_returns
+    excess=losses-var
+    excess_pos=np.maximum(excess, 0)
+    cvar=var+(1/(alpha*T))*np.sum(excess_pos)
+    return cvar
+bounds=[(0,1)]*n+[(None, None)]
+constraints=[
+    {'type': 'eq', 'fun': lambda x: np.sum(x[:n]) - 1}
+]
+init=np.concatenate([np.ones(n)/n, [0]])
+result=minimize(cvar_objective, init, args=(returns, 0.05), method="SLSQP", bounds=bounds, constraints=constraints)
+weights_cvar=result.x[:n]
+portfolio_return_cvar=(returns @ weights_cvar).mean()
+portfolio_vol_cvar=np.std(returns @ weights_cvar)
+print("graza:", portfolio_return_cvar)
+print("kintamumas:", portfolio_vol_cvar)
+cvar_weights=pd.DataFrame({
+    "asset": selected,
+    "weight": weights_cvar
+})
+print(cvar_weights)
+
+# 4 metodas. Globalaus minimalaus kintamumo (GMVP) metodas
+
+def portfolio_return(w, mu):
+    return w @ mu
+def portfolio_variance(w, cov):
+    return w.T @ cov @ w
+def portfolio_volatility(w, cov):
+    return np.sqrt(portfolio_variance(w, cov))
+
+returns=log_returns[selected]
+mu=returns.mean()
+cov=returns.cov()
+n=len(selected)
+
+bounds=[(0, 1) for _ in range(n)] 
+constraints=({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+init_w=np.ones(n)/n
+
+def risk_objective(w, cov):
+    return portfolio_volatility(w, cov)
+
+# optimizacija
+result_min_risk=minimize(
+    risk_objective,
+    init_w,
+    args=(cov,),
+    method="SLSQP",
+    bounds=bounds,
+    constraints=constraints
+)
+weights_min_risk=result_min_risk.x
+
+ret_min=portfolio_return(weights_min_risk, mu)
+vol_min=portfolio_volatility(weights_min_risk, cov)
+portfolio_min_risk = pd.DataFrame({
+    "asset": selected,
+    "weight": weights_min_risk
+})
+print(portfolio_min_risk)
+print("graza:", ret_min)
+print("kintamumas:", vol_min)
+
+# 5 metodas. Maksimalaus Sharpe rodiklio (MSRP) metodas
+
+# optimizacijos funckija
+def neg_sharpe(w, mu, cov):
+    ret=portfolio_return(w, mu)
+    vol=portfolio_volatility(w, cov)
+    return -ret/vol
+n=len(selected)
+init_w=np.ones(n)/n
+bounds=[(0,1)]*n
+constraints=({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})
+result_sharpe = minimize(
+    neg_sharpe,
+    init_w,
+    args=(mu, cov),
+    method="SLSQP",
+    bounds=bounds,
+    constraints=constraints
+)
+weights_sharpe=result_sharpe.x
+ret_sharpe=portfolio_return(weights_sharpe, mu)
+vol_sharpe=portfolio_volatility(weights_sharpe, cov)
+portfolio_sharpe = pd.DataFrame({
+    "asset": selected,
+    "weight": weights_sharpe
+})
+print("graza:", ret_sharpe)
+print("kintamumas:", vol_sharpe)
+
+# Markowitz efektyvumo kreive
+def efficient_frontier(mu, cov, points=50):
+    n=len(mu)
+    bounds=[(0,1)] * n
+    init_w=np.ones(n) / n
+    target_returns=np.linspace(mu.min(), mu.max(), points)
+    vols=[]
+    rets=[]
+    for target in target_returns:
+        constraints=[
+            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            {'type': 'eq', 'fun': lambda w: portfolio_return(w, mu) - target}
+        ]
+        res=minimize(
+            portfolio_volatility,
+            init_w,
+            args=(cov,),
+            method='SLSQP',
+            bounds=bounds,
+            constraints=constraints
+        )
+        if res.success:
+            vols.append(portfolio_volatility(res.x, cov))
+            rets.append(target)
+    return np.array(vols), np.array(rets)
+
+vols, rets = efficient_frontier(mu, cov, points=50)
+plt.figure(figsize=(10,6))
+plt.plot(vols, rets, 'b-', label="Efektyvumo kreivė")
+plt.scatter(vol_eq, ret_eq, color='gray', s=100, label="EWP")
+plt.scatter(vol_ivp, ret_ivp, color='red', s=100, label="IVP")
+plt.scatter(portfolio_vol_cvar, portfolio_return_cvar, color='purple', s=140, label="CVAR")
+plt.scatter(vol_min, ret_min, color='yellow', s=50, label="GMVP")
+plt.scatter(vol_sharpe, ret_sharpe, color='green', s=120, label="MSRP")
+plt.xlabel("Rizika (kintamumas)")
+plt.grid(True)
+plt.ylabel("Grąža")
+plt.legend()
+plt.show()
