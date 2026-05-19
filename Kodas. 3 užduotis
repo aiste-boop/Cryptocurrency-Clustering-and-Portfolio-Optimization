@@ -1,0 +1,156 @@
+# 3 užduotis. Iš kiekvieno klasterio atrinkti efektyviausias ir mažiausiai tarpusavyje priklausomas kriptovaliutas
+
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy import stats
+from scipy.stats import anderson
+import numpy as np
+import math
+from itertools import combinations
+
+# kriptovaliutu statistine analize
+X_feat = pd.DataFrame({
+    "mean": X.mean(axis=1),
+    "std": X.std(axis=1),
+    "skew": X.skew(axis=1),
+    "kurt": X.kurtosis(axis=1)
+})
+print(X_feat)
+
+# kriptovaliutu histogramos
+X=log_returns.T
+sns.histplot(X.loc["BTC-USD"], kde=True)
+# plt.title("BTC kriptovaliutos grąžų histograma")
+plt.xlabel("Kasdienė grąža")
+plt.ylabel("Kiekis")
+plt.show()
+
+# kriptovaliutu kolmogorovo-smirnovo normalumo testas
+results=[]
+for coin in X.index: 
+    data=X.loc[coin].dropna()
+    data_std=(data-np.mean(data))/np.std(data)
+    ks_stat, ks_p=stats.kstest(data_std, 'norm')
+    results.append({
+        "coin": coin,
+        "ks_stat": ks_stat,
+        "ks_pvalue": ks_p
+    })
+ks_df=pd.DataFrame(results).sort_values("ks_pvalue")
+print(ks_df)
+
+# kriptovaliutu andersono-darlingo normalumo testas
+results=[]
+for coin in X.index: 
+    data=X.loc[coin].dropna()
+    data_std=(data-np.mean(data))/np.std(data)
+    ad_result=anderson(data_std, dist='norm')
+    AD=ad_result.statistic
+    p_value=math.exp(1.29-5.71*AD+0.0186*(AD**2))
+    results.append({
+        "coin": coin,
+        "AD_statistic": AD,
+        "p_value": p_value
+    })
+ad_df=pd.DataFrame(results)
+print(ad_df)
+
+# Spirmeno koreliacija taikoma, nubreziamas kriptovaliutu heatmap
+corr=X.T.corr(method="spearman")
+sorted_coins=clusters.sort_values().index
+corr_sorted=corr.loc[sorted_coins, sorted_coins]
+cluster_sizes=clusters.sort_values().value_counts().sort_index()
+boundaries=cluster_sizes.cumsum()
+plt.figure(figsize=(10,8))
+ax=sns.heatmap(corr_sorted, cmap="coolwarm", center=0)
+cbar=ax.collections[0].colorbar
+cbar.set_label("Spirmeno koreliacijos koeficientas")
+# atskiriami klasteriai
+for b in boundaries:
+    ax.axhline(b, color='black', linewidth=2)
+    ax.axvline(b, color='black', linewidth=2)
+plt.show()
+
+# atrenkamos 3 maziausiai koreliuojancios kripto is antro portfelio
+def best_3_low_corr(assets, corr_matrix):
+    # pradines reiksmes
+    best_combo = None
+    best_score = float("inf")
+    for combo in combinations(assets, 3):
+        score=(
+            abs(corr_matrix.loc[combo[0], combo[1]])+
+            abs(corr_matrix.loc[combo[0], combo[2]])+
+            abs(corr_matrix.loc[combo[1], combo[2]])
+        ) /3
+        if score<best_score:
+            best_score=score
+            best_combo=combo
+    return best_combo, best_score
+results={}
+# imamas antras klasteris, kadangi ten maziau koreliuojancios kripto
+assets=clusters[clusters==1].index.tolist()
+assets=[a for a in assets if a in corr.index]
+best_combo, score=best_3_low_corr(assets, corr)
+print(best_combo)
+# gautos tokios geriausios kripto
+selected=['LEO-USD', 'USDC-USD', 'XAUT-USD']
+
+# vizualizuojame atrinktas kripto is antro klasterio
+final_corr=corr.loc[selected, selected]
+plt.figure(figsize=(6,5))
+ax=sns.heatmap(final_corr, cmap="coolwarm", center=0, annot=True, fmt=".2f")
+cbar=ax.collections[0].colorbar
+cbar.set_label("Spirmeno koreliacijos koeficientas")
+# kad ticker zodziu nebutu
+ax.set_xlabel("")
+ax.set_ylabel("")
+plt.show()
+
+# atrenkamos dar trys kripto is pirmo klasterio, kad visos maziausiai koreliuotu
+selected_cluster1=['LEO-USD', 'USDC-USD', 'XAUT-USD']
+def best_3_with_penalty(assets, corr_matrix, existing_assets):
+    best_combo=None
+    best_score=float("inf")
+    for combo in combinations(assets, 3):
+        # vidine koreliacija (pirmame klasteryje)
+        internal=np.mean([
+            abs(corr_matrix.loc[a, b])
+            for a, b in combinations(combo, 2)
+        ])
+        # isorine koreliacija (su jau atrinktomis kripto)
+        external=np.mean([
+            abs(corr_matrix.loc[a, b])
+            for a in combo
+            for b in existing_assets
+        ])
+        # bendra koreliacija
+        score=0.5*internal+0.5*external
+        if score<best_score:
+            best_score=score
+            best_combo=combo
+    return best_combo, best_score
+# paimamas pirmas klasteris
+cluster2_assets=clusters[clusters==0].index.tolist()
+cluster2_assets=[a for a in cluster2_assets if a in corr.index]
+selected_cluster2, score2=best_3_with_penalty(cluster2_assets, corr, selected_cluster1)
+print(selected_cluster2)
+
+# atrinktu kripto heatmap
+selected=['LEO-USD', 'USDC-USD', 'XAUT-USD', 'SOL-USD', 'UNI7083-USD', 'ZEC-USD']
+final_corr=corr.loc[selected, selected]
+plt.figure(figsize=(6,5))
+ax=sns.heatmap(final_corr, cmap="coolwarm", center=0, annot=True, fmt=".2f")
+cbar=ax.collections[0].colorbar
+cbar.set_label("Spirmeno koreliacijos koeficientas")
+ax.axhline(3, color='black', linewidth=2)
+ax.axvline(3, color='black', linewidth=2)
+ax.set_xlabel("")
+ax.set_ylabel("")
+plt.show()
+
+# koreliacija atrinktu kripto
+upper=final_corr.where(np.triu(np.ones(final_corr.shape), k=1).astype(bool))
+mean_corr=upper.stack().mean()
+print(mean_corr)
